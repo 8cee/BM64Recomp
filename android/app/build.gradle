@@ -1,0 +1,70 @@
+plugins {
+    id 'com.android.application'
+}
+
+final String homeDir = System.getenv('HOME') ?: System.getProperty('user.home')
+final String sdl2Prefix = System.getenv('BM64_ANDROID_SDL2_PREFIX') ?: "${homeDir}/Android/prefixes/SDL2-2.32.10-android-arm64"
+final String freetypePrefix = System.getenv('BM64_ANDROID_FREETYPE_PREFIX') ?: "${homeDir}/Android/prefixes/freetype-2.13.3-android-arm64"
+final File generatedJniLibsDir = layout.buildDirectory.dir('generated/jniLibs').get().asFile
+final File generatedProgramAssetsDir = layout.buildDirectory.dir('generated/programAssets').get().asFile
+
+android {
+    namespace 'com.eightcee.bm64recomp'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.eightcee.bm64recomp'
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0-dev'
+
+        externalNativeBuild {
+            cmake {
+                abiFilters 'arm64-v8a'
+                arguments                     '-DANDROID_PLATFORM=android-24',                     "-DSDL2_DIR=${sdl2Prefix}/lib/cmake/SDL2",                     "-DCMAKE_PREFIX_PATH=${sdl2Prefix};${freetypePrefix}",                     "-DFREETYPE_LIBRARY=${freetypePrefix}/lib/libfreetype.a",                     "-DFREETYPE_INCLUDE_DIRS=${freetypePrefix}/include/freetype2",                     '-DBM64_ANDROID_RUNTIME_APK=ON'
+                cFlags '-O2', '-g', '-DNDEBUG'
+                cppFlags '-O2', '-g', '-DNDEBUG'
+            }
+        }
+    }
+
+    ndkVersion '28.2.13676358'
+
+    externalNativeBuild {
+        cmake {
+            path file('../../CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = [generatedJniLibsDir]
+            assets.srcDirs = [generatedProgramAssetsDir]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
+
+tasks.register('copySdl2JniLib', Copy) {
+    from("${sdl2Prefix}/lib/libSDL2.so")
+    into(new File(generatedJniLibsDir, 'arm64-v8a'))
+}
+
+tasks.register('copyProgramAssets', Copy) {
+    doFirst { delete generatedProgramAssetsDir }
+    from('../../assets') { into('program/assets') }
+    from('../../recompcontrollerdb.txt') { into('program') }
+    into(generatedProgramAssetsDir)
+}
+
+tasks.named('preBuild') {
+    dependsOn tasks.named('copySdl2JniLib')
+    dependsOn tasks.named('copyProgramAssets')
+}
