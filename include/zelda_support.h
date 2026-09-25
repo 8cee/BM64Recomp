@@ -15,7 +15,9 @@ namespace zelda64 {
 #endif
     void open_file_dialog(std::function<void(bool success, const std::filesystem::path& path)> callback);
     void open_file_dialog_multiple(std::function<void(bool success, const std::list<std::filesystem::path>& paths)> callback);
-    void open_mod_server(std::function<void(bool success, const std::list<std::filesystem::path>& paths)> callback);\n    void import_save();\n    void export_save();
+    void open_mod_server(std::function<void(bool success, const std::list<std::filesystem::path>& paths)> callback);
+    void import_save();
+    void export_save();
     void show_error_message_box(const char *title, const char *message);
 
 // Apple specific methods that usually require Objective-C. Implemented in support_apple.mm.
