@@ -1,11 +1,16 @@
 #include "zelda_support.h"
 #include <SDL.h>
+#if !defined(__ANDROID__)
 #include "nfd.h"
+#endif
 #include "RmlUi/Core.h"
 
 namespace zelda64 {
     // MARK: - Internal Helpers
     void perform_file_dialog_operation(const std::function<void(bool, const std::filesystem::path&)>& callback) {
+#if defined(__ANDROID__)
+        callback(false, {});
+#else
         nfdnchar_t* native_path = nullptr;
         nfdresult_t result = NFD_OpenDialogN(&native_path, nullptr, 0, nullptr);
 
@@ -18,9 +23,13 @@ namespace zelda64 {
         }
 
         callback(success, path);
+#endif
     }
 
     void perform_file_dialog_operation_multiple(const std::function<void(bool, const std::list<std::filesystem::path>&)>& callback) {
+#if defined(__ANDROID__)
+        callback(false, {});
+#else
         const nfdpathset_t* native_paths = nullptr;
         nfdresult_t result = NFD_OpenDialogMultipleN(&native_paths, nullptr, 0, nullptr);
 
@@ -41,12 +50,15 @@ namespace zelda64 {
         }
 
         callback(success, paths);
+#endif
     }
 
     // MARK: - Public API
 
     std::filesystem::path get_program_path() {
-#if defined(__APPLE__)
+#if defined(__ANDROID__)
+        return std::filesystem::current_path();
+#elif defined(__APPLE__)
         return get_bundle_resource_directory();
 #elif defined(__linux__) && defined(RECOMP_FLATPAK)
         return "/app/bin";
