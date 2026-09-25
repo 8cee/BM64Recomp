@@ -80,6 +80,23 @@ public final class VirtualPadView extends View {
     private float stickX, stickY, stickR, knobX, knobY;
     private float safeL, safeT, safeR, safeB;
     private boolean controlsVisible = true;
+    private boolean nativeControlsActive = false;
+    private final Runnable visibilityPoll = new Runnable() {
+        @Override
+        public void run() {
+            boolean active = false;
+            try {
+                active = nativeControlsActive();
+            } catch (UnsatisfiedLinkError ignored) { }
+
+            if (nativeControlsActive != active) {
+                nativeControlsActive = active;
+                if (!active) releaseAll();
+                invalidate();
+            }
+            postDelayed(this, 150L);
+        }
+    };
     private float toggleX, toggleY, toggleR;
 
     public VirtualPadView(Context context) {
@@ -93,10 +110,12 @@ public final class VirtualPadView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         text.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         setBackgroundColor(Color.TRANSPARENT);
+        post(visibilityPoll);
     }
 
     private native void nativeButton(int id, boolean pressed);
     private native void nativeAxis(float x, float y);
+    private native boolean nativeControlsActive();
 
     @Override
     public WindowInsets onApplyWindowInsets(WindowInsets insets) {
@@ -162,6 +181,7 @@ public final class VirtualPadView extends View {
     @Override
     protected void onDraw(Canvas c) {
         super.onDraw(c);
+        if (!nativeControlsActive) return;
         drawToggle(c);
         if (!controlsVisible) return;
 
@@ -209,6 +229,7 @@ public final class VirtualPadView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (!nativeControlsActive) return false;
         int action = e.getActionMasked();
         int index = e.getActionIndex();
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
@@ -309,6 +330,7 @@ public final class VirtualPadView extends View {
 
     @Override
     protected void onDetachedFromWindow() {
+        removeCallbacks(visibilityPoll);
         releaseAll();
         super.onDetachedFromWindow();
     }
