@@ -288,6 +288,18 @@ void ModMenu::open_install_dialog() {
     });
 }
 
+void ModMenu::open_mod_server() {
+    zelda64::open_mod_server([](bool success, const std::list<std::filesystem::path>& paths) {
+        if (success) {
+            ContextId old_context = recompui::try_close_current_context();
+            recompui::drop_files(paths);
+            if (old_context != ContextId::null()) {
+                old_context.open();
+            }
+        }
+    });
+}
+
 void ModMenu::mod_toggled(bool enabled) {
     if (active_mod_index >= 0) {
         recomp::mods::enable_mod(mod_details[active_mod_index].mod_id, enabled);
