@@ -1,0 +1,90 @@
+name: BM64 Patch Generation
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-patch-generation.yml'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          submodules: false
+          fetch-depth: 1
+
+      - name: Init required public submodules
+        run: |
+          git submodule update --init BM64Syms
+          git submodule update --init lib/N64ModernRuntime
+          git submodule update --init lib/rt64
+
+      - name: Supply sf64 header mirror
+        run: |
+          rm -rf lib/sf64
+          git clone --depth 1 https://github.com/Greenlink747/sf64.git lib/sf64
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang lld cmake
+
+      - name: Build exact N64Recomp host tool
+        run: |
+          git clone --recursive https://github.com/N64Recomp/N64Recomp.git N64Recomp-src
+          cd N64Recomp-src
+          git checkout 81213c1831fab2521a6a5459c67b63437d67e253
+          git submodule update --init --recursive
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target N64RecompCLI -j2
+          cp build/N64Recomp ../N64Recomp
+          chmod +x ../N64Recomp
+
+      - name: Build patch ELF
+        run: |
+          make -C patches clean
+          make -C patches CC=clang LD=ld.lld
+
+      - name: Recompile patches
+        run: |
+          mkdir -p RecompiledPatches
+          ./N64Recomp patches.toml
+          test -s RecompiledPatches/patches.c
+          test -s RecompiledPatches/recomp_overlays.inl
+          test -s RecompiledPatches/funcs.h
+          test -s patches/patches.bin
+
+      - name: Create patches_bin.c
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          data=Path('patches/patches.bin').read_bytes()
+          out=Path('RecompiledPatches/patches_bin.c')
+          hdr=Path('RecompiledPatches/patches_bin.h')
+          name='mm_patches_bin'
+          lines=[f'unsigned char {name}[] = {{']
+          for i in range(0,len(data),12):
+              chunk=data[i:i+12]
+              lines.append('    '+', '.join(f'0x{b:02X}' for b in chunk)+',')
+          lines += ['};', f'unsigned int {name}_len = {len(data)};']
+          out.write_text('\n'.join(lines)+'\n')
+          hdr.write_text(f'extern unsigned char {name}[];\nextern unsigned int {name}_len;\n')
+          PY
+          test -s RecompiledPatches/patches_bin.c
+
+      - name: Upload generated patch sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-generated-patches
+          path: |
+            RecompiledPatches/patches.c
+            RecompiledPatches/patches_bin.c
+            RecompiledPatches/patches_bin.h
+            RecompiledPatches/recomp_overlays.inl
+            RecompiledPatches/funcs.h
+          if-no-files-found: error
