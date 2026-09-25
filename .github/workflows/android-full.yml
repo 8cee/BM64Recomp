@@ -21,7 +21,20 @@ jobs:
         with:
           ref: android
           fetch-depth: 1
-          submodules: recursive
+          submodules: false
+
+      - name: Initialize required submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule update --init --recursive \
+            BM64Syms \
+            lib/N64ModernRuntime \
+            lib/RmlUi \
+            lib/freetype-windows-binaries \
+            lib/lunasvg \
+            lib/rt64 \
+            lib/sse2neon
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
