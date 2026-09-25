@@ -109,6 +109,12 @@ Java_com_eightcee_bm64recomp_VirtualPadView_nativeAxis(JNIEnv*, jobject, jfloat 
     touch_stick_y.store(fy, std::memory_order_relaxed);
     push_touch_axis_events(fx, fy);
 }
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_eightcee_bm64recomp_VirtualPadView_nativeControlsActive(JNIEnv*, jobject) {
+    return (ultramodern::is_game_started() && !recomp::game_input_disabled())
+        ? JNI_TRUE : JNI_FALSE;
+}
 #endif
 
 // Make the button value array, which maps a button index to its bit field.
