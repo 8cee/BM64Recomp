@@ -90,13 +90,13 @@ jobs:
           GRADLE_ROOT="$(dirname "$(dirname "$GRADLE_BIN")")"
           mkdir -p /tmp/bm64-offline/gradle
           cp -a "$GRADLE_ROOT" /tmp/bm64-offline/gradle/8.11.1
-          cat > /tmp/bm64-offline/ENV.txt <<EOF
-ANDROID_HOME_REL=sdk
-GRADLE_REL=gradle/8.11.1
-PROJECT_REL=project
-HOME_ANDROID_REL=home/Android
-HOME_GRADLE_REL=home/.gradle
-EOF
+          printf '%s\n' \
+            'ANDROID_HOME_REL=sdk' \
+            'GRADLE_REL=gradle/8.11.1' \
+            'PROJECT_REL=project' \
+            'HOME_ANDROID_REL=home/Android' \
+            'HOME_GRADLE_REL=home/.gradle' \
+            > /tmp/bm64-offline/ENV.txt
           tar -C /tmp -I 'zstd -T0 -10' -cf bm64-offline-android-toolchain.tar.zst bm64-offline
           ls -lh /tmp/bm64-offline-android-toolchain.tar.zst
 
