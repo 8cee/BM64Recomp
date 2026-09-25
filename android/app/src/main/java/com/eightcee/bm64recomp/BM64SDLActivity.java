@@ -23,7 +23,7 @@ import java.util.List;
 public class BM64SDLActivity extends SDLActivity {
     private static final String TAG = "BM64Android";
     private static final int REQUEST_ROM = 1001;
-    private static final int REQUEST_MODS = 1002;
+    private static final int REQUEST_MODS = 1002;\n    private static final int REQUEST_SAVE_IMPORT = 1003;\n    private static final int REQUEST_SAVE_EXPORT = 1004;\n    private static final long BM64_SAVE_SIZE = 0x20000L;
 
     public static native void nativeConfigurePaths(String programPath, String appPath);
     public static native void nativeOnRomSelected(String path);
@@ -65,6 +65,70 @@ public class BM64SDLActivity extends SDLActivity {
             });
             startActivityForResult(intent, REQUEST_ROM);
         });
+    }
+
+    public void openSaveImportPicker() {
+        runOnUiThread(() -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/octet-stream");
+            startActivityForResult(intent, REQUEST_SAVE_IMPORT);
+        });
+    }
+
+    public void openSaveExportPicker() {
+        runOnUiThread(() -> {
+            File save = getPrimarySaveFile();
+            if (!save.exists()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("Export Save")
+                        .setMessage("No Bomberman 64 save exists yet.")
+                        .setPositiveButton("OK", null)
+                        .show();
+                return;
+            }
+
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/octet-stream");
+            intent.putExtra(Intent.EXTRA_TITLE, "bm64_us.bin");
+            startActivityForResult(intent, REQUEST_SAVE_EXPORT);
+        });
+    }
+
+    private File getPrimarySaveFile() {
+        return new File(new File(new File(getFilesDir(), "data"), "saves"), "bm64_us.bin");
+    }
+
+    private void importSaveUri(Uri uri) throws IOException {
+        File save = getPrimarySaveFile();
+        File saveDir = save.getParentFile();
+        if (saveDir != null) saveDir.mkdirs();
+
+        File temp = new File(save.getParentFile(), "bm64_us.bin.import");
+        copyUriToFile(uri, temp);
+
+        if (temp.length() != BM64_SAVE_SIZE) {
+            temp.delete();
+            throw new IOException("Invalid save size. Expected 131072 bytes, got " + temp.length() + ".");
+        }
+
+        File backup = new File(save.getParentFile(), "bm64_us.bin.bak");
+        if (save.exists()) {
+            copyFile(save, backup);
+        }
+        copyFile(temp, save);
+        temp.delete();
+    }
+
+    private void exportSaveUri(Uri uri) throws IOException {
+        File save = getPrimarySaveFile();
+        if (!save.exists()) throw new IOException("No Bomberman 64 save exists yet.");
+        try (InputStream in = new FileInputStream(save);
+             OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
+            if (out == null) throw new IOException("Could not open export destination.");
+            copyStream(in, out);
+        }
     }
 
     public void openModServerBrowser() {
@@ -152,6 +216,48 @@ public class BM64SDLActivity extends SDLActivity {
             return;
         }
 
+        if (requestCode == REQUEST_SAVE_IMPORT) {
+            if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    importSaveUri(data.getData());
+                    new AlertDialog.Builder(this)
+                            .setTitle("Import Save")
+                            .setMessage("Save imported successfully. It will be used the next time Bomberman 64 starts.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                } catch (IOException e) {
+                    Log.e(TAG, "Save import failed", e);
+                    new AlertDialog.Builder(this)
+                            .setTitle("Import Save Failed")
+                            .setMessage(e.getMessage())
+                            .setPositiveButton("OK", null)
+                            .show();
+                }
+            }
+            return;
+        }
+
+        if (requestCode == REQUEST_SAVE_EXPORT) {
+            if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    exportSaveUri(data.getData());
+                    new AlertDialog.Builder(this)
+                            .setTitle("Export Save")
+                            .setMessage("Save exported successfully.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                } catch (IOException e) {
+                    Log.e(TAG, "Save export failed", e);
+                    new AlertDialog.Builder(this)
+                            .setTitle("Export Save Failed")
+                            .setMessage(e.getMessage())
+                            .setPositiveButton("OK", null)
+                            .show();
+                }
+            }
+            return;
+        }
+
         if (requestCode == REQUEST_MODS) {
             ArrayList<String> imported = new ArrayList<>();
             if (resultCode == Activity.RESULT_OK && data != null) {
@@ -199,17 +305,30 @@ public class BM64SDLActivity extends SDLActivity {
         return name.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
+    private static void copyStream(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[64 * 1024];
+        int read;
+        while ((read = in.read(buffer)) >= 0) {
+            out.write(buffer, 0, read);
+        }
+    }
+
+    private static void copyFile(File source, File target) throws IOException {
+        File parent = target.getParentFile();
+        if (parent != null) parent.mkdirs();
+        try (InputStream in = new FileInputStream(source);
+             OutputStream out = new FileOutputStream(target)) {
+            copyStream(in, out);
+        }
+    }
+
     private void copyUriToFile(Uri uri, File target) throws IOException {
         File parent = target.getParentFile();
         if (parent != null) parent.mkdirs();
         try (InputStream in = getContentResolver().openInputStream(uri);
              OutputStream out = new FileOutputStream(target)) {
             if (in == null) throw new IOException("Could not open selected document");
-            byte[] buffer = new byte[64 * 1024];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, read);
-            }
+            copyStream(in, out);
         }
     }
 
