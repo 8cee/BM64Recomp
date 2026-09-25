@@ -63,7 +63,7 @@ public final class DiagnosticsLogger {
      *  jogo -> "Logs de diagnóstico" (ou long-press no ícone -> shortcut).
      *  Ao ligar, a sessão começa NA HORA (setEnabled inicia a sessão); não
      *  é preciso reabrir o app. */
-    private static final boolean DEFAULT_ENABLED = false;
+    private static final boolean DEFAULT_ENABLED = true;
 
     private static final int KEEP_FILES = 5;
     private static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
