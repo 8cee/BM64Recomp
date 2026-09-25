@@ -1,0 +1,40 @@
+name: BM64 Host Recomp Tools
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-host-recomp-tools.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact N64Recomp revision
+        run: |
+          git clone --recursive https://github.com/N64Recomp/N64Recomp.git N64Recomp-src
+          cd N64Recomp-src
+          git checkout 81213c1831fab2521a6a5459c67b63437d67e253
+          git submodule update --init --recursive
+
+      - name: Configure
+        run: cmake -S N64Recomp-src -B N64Recomp-src/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build host tools
+        run: cmake --build N64Recomp-src/build --target N64RecompCLI RSPRecomp -j2
+
+      - name: Collect binaries
+        run: |
+          mkdir -p out
+          cp N64Recomp-src/build/N64Recomp out/N64Recomp
+          cp N64Recomp-src/build/RSPRecomp out/RSPRecomp
+          chmod +x out/N64Recomp out/RSPRecomp
+          sha256sum out/N64Recomp out/RSPRecomp > out/SHA256SUMS.txt
+
+      - name: Upload host tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-host-recomp-tools-linux-x64
+          path: out/
+          if-no-files-found: error
