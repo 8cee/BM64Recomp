@@ -1,10 +1,179 @@
 package com.eightcee.bm64recomp;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.content.res.AssetManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.OpenableColumns;
+import android.database.Cursor;
+import android.util.Log;
+
 import org.libsdl.app.SDLActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+
 public class BM64SDLActivity extends SDLActivity {
+    private static final String TAG = "BM64Android";
+    private static final int REQUEST_ROM = 1001;
+    private static final int REQUEST_MODS = 1002;
+
+    public static native void nativeConfigurePaths(String programPath, String appPath);
+    public static native void nativeOnRomSelected(String path);
+    public static native void nativeOnModsSelected(String[] paths);
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL2", "main" };
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        File programDir = new File(getFilesDir(), "program");
+        File dataDir = new File(getFilesDir(), "data");
+        File romDir = new File(getFilesDir(), "roms");
+        File importDir = new File(getFilesDir(), "imports/mods");
+        programDir.mkdirs();
+        dataDir.mkdirs();
+        romDir.mkdirs();
+        importDir.mkdirs();
+
+        try {
+            extractAssetTree("program", programDir);
+        } catch (IOException e) {
+            Log.e(TAG, "Could not extract program assets", e);
+        }
+
+        super.onCreate(savedInstanceState);
+        nativeConfigurePaths(programDir.getAbsolutePath(), dataDir.getAbsolutePath());
+    }
+
+    public void openRomFilePicker() {
+        runOnUiThread(() -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                    "application/octet-stream", "application/x-n64-rom"
+            });
+            startActivityForResult(intent, REQUEST_ROM);
+        });
+    }
+
+    public void openModFilePicker() {
+        runOnUiThread(() -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                    "application/octet-stream", "application/zip", "application/x-zip-compressed"
+            });
+            startActivityForResult(intent, REQUEST_MODS);
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_ROM) {
+            String path = null;
+            if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    File target = new File(new File(getFilesDir(), "roms"), "Bomberman64-user-rom.z64");
+                    copyUriToFile(data.getData(), target);
+                    path = target.getAbsolutePath();
+                } catch (IOException e) {
+                    Log.e(TAG, "ROM import failed", e);
+                }
+            }
+            nativeOnRomSelected(path);
+            return;
+        }
+
+        if (requestCode == REQUEST_MODS) {
+            ArrayList<String> imported = new ArrayList<>();
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                try {
+                    if (data.getClipData() != null) {
+                        for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                            importModUri(data.getClipData().getItemAt(i).getUri(), imported);
+                        }
+                    } else if (data.getData() != null) {
+                        importModUri(data.getData(), imported);
+                    }
+                } catch (IOException e) {
+                    Log.e(TAG, "Mod import failed", e);
+                }
+            }
+            nativeOnModsSelected(imported.toArray(new String[0]));
+            return;
+        }
+
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void importModUri(Uri uri, ArrayList<String> imported) throws IOException {
+        File dir = new File(getFilesDir(), "imports/mods");
+        dir.mkdirs();
+        String name = sanitizeFileName(queryDisplayName(uri));
+        if (name.isEmpty()) name = "mod-" + System.currentTimeMillis() + ".nrm";
+        File target = new File(dir, name);
+        copyUriToFile(uri, target);
+        imported.add(target.getAbsolutePath());
+    }
+
+    private String queryDisplayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri,
+                new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                String value = cursor.getString(0);
+                if (value != null) return value;
+            }
+        } catch (Exception ignored) { }
+        return "";
+    }
+
+    private static String sanitizeFileName(String name) {
+        return name.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private void copyUriToFile(Uri uri, File target) throws IOException {
+        File parent = target.getParentFile();
+        if (parent != null) parent.mkdirs();
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream out = new FileOutputStream(target)) {
+            if (in == null) throw new IOException("Could not open selected document");
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) >= 0) {
+                out.write(buffer, 0, read);
+            }
+        }
+    }
+
+    private void extractAssetTree(String assetPath, File destination) throws IOException {
+        AssetManager assets = getAssets();
+        String[] children = assets.list(assetPath);
+        if (children == null) return;
+        if (children.length == 0) {
+            File parent = destination.getParentFile();
+            if (parent != null) parent.mkdirs();
+            try (InputStream in = assets.open(assetPath);
+                 OutputStream out = new FileOutputStream(destination)) {
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = in.read(buffer)) >= 0) out.write(buffer, 0, read);
+            }
+            return;
+        }
+        destination.mkdirs();
+        for (String child : children) {
+            extractAssetTree(assetPath + "/" + child, new File(destination, child));
+        }
     }
 }
