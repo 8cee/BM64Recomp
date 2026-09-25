@@ -54,6 +54,23 @@
                             <label class="config-option__tab-label" for="bg_input_disabled">Off</label>
                         </div>
                     </div>
+
+                    <!-- Android save management -->
+                    <div class="config-option" data-event-mouseover="set_cur_config_index(10)">
+                        <label class="config-option__title">Save Management</label>
+                        <div class="config-option__list" style="gap: 12dp;">
+                            <button
+                                class="nav-vert"
+                                id="import_save_button"
+                                data-event-click="import_save"
+                            >Import Save</button>
+                            <button
+                                class="nav-vert"
+                                id="export_save_button"
+                                data-event-click="export_save"
+                            >Export Save</button>
+                        </div>
+                    </div>
                 </div>
                 <!-- Descriptions -->
                 <div class="config__wrapper">
@@ -96,6 +113,9 @@
                     </p>
                     <p data-if="cur_config_index == 9">
                         Inverts the camera controls for the analog camera if it's enabled. <b>None</b> is the default.
+                    </p>
+                    <p data-if="cur_config_index == 10">
+                        Import or export the Bomberman 64 save file. Import is only available before starting the game.
                     </p>
                 </div>
             </div>
