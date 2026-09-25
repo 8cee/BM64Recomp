@@ -13,6 +13,7 @@ import android.util.Log;
 import org.libsdl.app.SDLActivity;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +24,10 @@ import java.util.List;
 public class BM64SDLActivity extends SDLActivity {
     private static final String TAG = "BM64Android";
     private static final int REQUEST_ROM = 1001;
-    private static final int REQUEST_MODS = 1002;\n    private static final int REQUEST_SAVE_IMPORT = 1003;\n    private static final int REQUEST_SAVE_EXPORT = 1004;\n    private static final long BM64_SAVE_SIZE = 0x20000L;
+    private static final int REQUEST_MODS = 1002;
+    private static final int REQUEST_SAVE_IMPORT = 1003;
+    private static final int REQUEST_SAVE_EXPORT = 1004;
+    private static final long BM64_SAVE_SIZE = 0x20000L;
 
     public static native void nativeConfigurePaths(String programPath, String appPath);
     public static native void nativeOnRomSelected(String path);
