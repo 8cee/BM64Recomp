@@ -110,7 +110,7 @@ public class BM64SDLActivity extends SDLActivity {
             try {
                 File dir = new File(getFilesDir(), "imports/mods");
                 File downloaded = BM64ModServer.downloadVerified(mod, dir);
-                nativeOnModsSelected(new String[] { downloaded.getAbsolutePath() });
+                runOnUiThread(() -> nativeOnModsSelected(new String[] { downloaded.getAbsolutePath() }));
             } catch (Exception e) {
                 Log.e(TAG, "Mod download failed", e);
                 runOnUiThread(() -> new AlertDialog.Builder(this)
