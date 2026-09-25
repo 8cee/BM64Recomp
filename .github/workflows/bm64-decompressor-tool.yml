@@ -1,0 +1,27 @@
+name: BM64 Decompressor Tool
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-decompressor-tool.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch upstream decompressor source
+        run: |
+          git clone --depth 1 https://github.com/Bomberhackers/bm64.git upstream-bm64
+      - name: Build decompressor
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra upstream-bm64/tools/bm64decompress.cpp -o bm64decompress
+          chmod +x bm64decompress
+          ./bm64decompress || true
+      - name: Upload decompressor
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64decompress-linux-x64
+          path: bm64decompress
+          if-no-files-found: error
