@@ -1,0 +1,35 @@
+name: BM64 RT64 Zstd CMake Source
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-rt64-zstd-cmake.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          fetch-depth: 1
+          submodules: false
+
+      - name: Init pinned RT64 recursively
+        run: git submodule update --init --recursive lib/rt64
+
+      - name: Verify source directory
+        run: |
+          set -euo pipefail
+          test -f lib/rt64/src/contrib/zstd/build/cmake/CMakeLists.txt
+          find lib/rt64/src/contrib/zstd/build/cmake -maxdepth 2 -type f | sort
+
+      - name: Upload zstd cmake source
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-rt64-zstd-cmake
+          path: lib/rt64/src/contrib/zstd/build/cmake
+          if-no-files-found: error
