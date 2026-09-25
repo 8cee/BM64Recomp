@@ -81,6 +81,7 @@ public final class VirtualPadView extends View {
     private float safeL, safeT, safeR, safeB;
     private boolean controlsVisible = true;
     private boolean nativeControlsActive = false;
+    private boolean lifecycleActive = true;
     private final Runnable visibilityPoll = new Runnable() {
         @Override
         public void run() {
@@ -89,6 +90,7 @@ public final class VirtualPadView extends View {
                 active = nativeControlsActive();
             } catch (UnsatisfiedLinkError ignored) { }
 
+            active = active && lifecycleActive;
             if (nativeControlsActive != active) {
                 nativeControlsActive = active;
                 if (!active) releaseAll();
@@ -116,6 +118,15 @@ public final class VirtualPadView extends View {
     private native void nativeButton(int id, boolean pressed);
     private native void nativeAxis(float x, float y);
     private native boolean nativeControlsActive();
+
+    public void setLifecycleActive(boolean active) {
+        lifecycleActive = active;
+        if (!active) {
+            nativeControlsActive = false;
+            releaseAll();
+        }
+        invalidate();
+    }
 
     @Override
     public WindowInsets onApplyWindowInsets(WindowInsets insets) {
