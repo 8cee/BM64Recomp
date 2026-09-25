@@ -322,6 +322,13 @@ void recomp::handle_events() {
         started = true;
         recompui::process_game_started();
     }
+
+#if defined(__ANDROID__)
+    // Publish this from the SDL/game thread. The Java overlay polls only the
+    // resulting atomic flag and never touches RmlUi/native UI state directly.
+    recomp::android_update_touch_controls_active(
+        ultramodern::is_game_started() && !recomp::game_input_disabled());
+#endif
 }
 
 constexpr SDL_GameControllerButton SDL_CONTROLLER_BUTTON_SOUTH = SDL_CONTROLLER_BUTTON_A;
