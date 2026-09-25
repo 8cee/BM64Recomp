@@ -260,7 +260,10 @@ void ModMenu::refresh_mods(bool scan_mods) {
 
 void ModMenu::open_mods_folder() {
     std::filesystem::path mods_directory = recomp::mods::get_mods_directory();
-#if defined(WIN32)
+#if defined(__ANDROID__)
+    std::string message = "Mods are stored in app-private storage:\n" + mods_directory.string() + "\n\nUse Install Mods or Mod Server to add packages.";
+    zelda64::show_error_message_box("BM64 Mods", message.c_str());
+#elif defined(WIN32)
     std::wstring path_wstr = mods_directory.wstring();
     ShellExecuteW(NULL, L"open", path_wstr.c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #elif defined(__linux__)
