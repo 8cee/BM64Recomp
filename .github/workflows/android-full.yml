@@ -1,0 +1,155 @@
+name: Android Full APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bm64-android-full-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-full:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Install host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build unzip clang lld
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
+      - name: Download private generated BM64 inputs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::PRIVATE_REPO_TOKEN is not configured."
+            exit 1
+          fi
+
+          gh release download build-inputs \
+            --repo 8cee/8cee-bm64-recomp-build-inputs \
+            --pattern "BM64Recomp-generated-sources.zip" \
+            --output /tmp/BM64Recomp-generated-sources.zip \
+            --clobber
+
+          unzip -q /tmp/BM64Recomp-generated-sources.zip -d /tmp/bm64-generated
+          cp -a /tmp/bm64-generated/RecompiledFuncs .
+          cp -a /tmp/bm64-generated/RecompiledPatches .
+          mkdir -p rsp
+          cp /tmp/bm64-generated/rsp/aspMain.cpp rsp/aspMain.cpp
+
+          test -n "$(find RecompiledFuncs -maxdepth 1 -type f \( -name '*.c' -o -name '*.cpp' \) -print -quit)"
+          test -f RecompiledPatches/patches.c
+          test -f RecompiledPatches/patches_bin.c
+          test -f RecompiledPatches/recomp_overlays.inl
+          test -f RecompiledPatches/funcs.h
+          test -f rsp/aspMain.cpp
+
+      - name: Build SDL2 for Android ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          PREFIX="$HOME/Android/prefixes/SDL2-2.32.10-android-arm64"
+          NDK="$ANDROID_HOME/ndk/28.2.13676358"
+          CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+          "$CMAKE" -S /tmp/SDL2 -B /tmp/SDL2-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DSDL_SHARED=ON \
+            -DSDL_STATIC=OFF \
+            -DSDL_TEST=OFF
+          "$CMAKE" --build /tmp/SDL2-build --parallel
+          "$CMAKE" --install /tmp/SDL2-build
+
+      - name: Build Freetype for Android ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch VER-2-13-3 https://gitlab.freedesktop.org/freetype/freetype.git /tmp/freetype
+          PREFIX="$HOME/Android/prefixes/freetype-2.13.3-android-arm64"
+          NDK="$ANDROID_HOME/ndk/28.2.13676358"
+          CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+          "$CMAKE" -S /tmp/freetype -B /tmp/freetype-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DFT_DISABLE_HARFBUZZ=TRUE \
+            -DFT_DISABLE_BZIP2=TRUE \
+            -DFT_DISABLE_PNG=TRUE \
+            -DFT_DISABLE_BROTLI=TRUE
+          "$CMAKE" --build /tmp/freetype-build --parallel
+          "$CMAKE" --install /tmp/freetype-build
+
+      - name: Build full ARM64 APK
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:assembleDebug \
+            -Pbm64Probe=false \
+            --no-daemon \
+            --stacktrace
+
+      - name: Verify full APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" | tee /tmp/bm64-full-apk.txt
+          grep -q "lib/arm64-v8a/libmain.so" /tmp/bm64-full-apk.txt
+          grep -q "lib/arm64-v8a/libSDL2.so" /tmp/bm64-full-apk.txt
+          sha256sum "$APK" | tee "$APK.sha256"
+
+      - name: Upload full APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BM64Recomp-Android-ARM64-Full
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
