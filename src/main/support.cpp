@@ -222,6 +222,26 @@ namespace zelda64 {
 #endif
     }
 
+    void import_save() {
+#if defined(__ANDROID__)
+        if (!invoke_android_activity_method("openSaveImportPicker")) {
+            show_error_message_box("BM64 Save Import", "Could not open Android save importer.");
+        }
+#else
+        show_error_message_box("BM64 Save Import", "Save import is currently available on Android only.");
+#endif
+    }
+
+    void export_save() {
+#if defined(__ANDROID__)
+        if (!invoke_android_activity_method("openSaveExportPicker")) {
+            show_error_message_box("BM64 Save Export", "Could not open Android save exporter.");
+        }
+#else
+        show_error_message_box("BM64 Save Export", "Save export is currently available on Android only.");
+#endif
+    }
+
     void show_error_message_box(const char *title, const char *message) {
 #ifdef __APPLE__
         std::string title_copy(title);
