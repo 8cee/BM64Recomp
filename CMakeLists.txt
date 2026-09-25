@@ -37,6 +37,19 @@ endif()
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# Minimal Android packaging/lifecycle probe. This intentionally avoids RT64 and
+# ROM-derived recompiler outputs so CI can validate the APK toolchain publicly.
+if (CMAKE_SYSTEM_NAME MATCHES "Android" AND BM64_ANDROID_PROBE)
+    find_package(SDL2 REQUIRED)
+    add_library(main SHARED
+        ${CMAKE_SOURCE_DIR}/src/android/android_probe.cpp
+    )
+    target_include_directories(main PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(main PRIVATE SDL2::SDL2 android log)
+    target_compile_definitions(main PRIVATE BM64_ANDROID_PROBE=1)
+    return()
+endif()
+
 if (WIN32)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/lib/")
 endif()
