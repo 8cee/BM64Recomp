@@ -375,9 +375,12 @@ target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE
     rt64
     RmlUi::Core
     RmlUi::Debugger
-    nfd
     lunasvg
 )
+
+if (NOT CMAKE_SYSTEM_NAME MATCHES "Android")
+    target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE nfd)
+endif()
 
 # TODO fix the rt64 CMake script so that this doesn't need to be duplicated here
 # For DXC
@@ -403,7 +406,8 @@ else()
             set(SPIRVCROSS "DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/lib/rt64/src/contrib/spirv-cross/lib/arm64" "${PROJECT_SOURCE_DIR}/lib/rt64//src/contrib/spirv-cross/bin/x64/spirv-cross")
         endif()
     else()
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+        # DXC runs on the build host even while cross-compiling for Android.
+        if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
             set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/lib/rt64/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/lib/rt64/src/contrib/dxc/bin/x64/dxc-linux")
         else()
             set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/lib/rt64/src/contrib/dxc/lib/arm64" "${PROJECT_SOURCE_DIR}/lib/rt64/src/contrib/dxc/bin/arm64/dxc-linux")
