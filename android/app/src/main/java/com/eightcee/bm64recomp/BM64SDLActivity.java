@@ -3,6 +3,7 @@ package com.eightcee.bm64recomp;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -28,10 +29,17 @@ public class BM64SDLActivity extends SDLActivity {
     private static final int REQUEST_SAVE_IMPORT = 1003;
     private static final int REQUEST_SAVE_EXPORT = 1004;
     private static final long BM64_SAVE_SIZE = 0x20000L;
+    private static final long MAX_ROM_BYTES = 64L * 1024L * 1024L;
+    private static final long MAX_MOD_BYTES = 512L * 1024L * 1024L;
 
     public static native void nativeConfigurePaths(String programPath, String appPath);
     public static native void nativeOnRomSelected(String path);
     public static native void nativeOnModsSelected(String[] paths);
+
+    @Override
+    public void setOrientationBis(int w, int h, boolean resizable, String hint) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    }
 
     @Override
     protected String[] getLibraries() {
@@ -110,7 +118,7 @@ public class BM64SDLActivity extends SDLActivity {
         if (saveDir != null) saveDir.mkdirs();
 
         File temp = new File(save.getParentFile(), "bm64_us.bin.import");
-        copyUriToFile(uri, temp);
+        copyUriToFileAtomic(uri, temp, BM64_SAVE_SIZE);
 
         if (temp.length() != BM64_SAVE_SIZE) {
             temp.delete();
@@ -210,7 +218,7 @@ public class BM64SDLActivity extends SDLActivity {
             if (resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
                 try {
                     File target = new File(new File(getFilesDir(), "roms"), "Bomberman64-user-rom.z64");
-                    copyUriToFile(data.getData(), target);
+                    copyUriToFileAtomic(data.getData(), target, MAX_ROM_BYTES);
                     path = target.getAbsolutePath();
                 } catch (IOException e) {
                     Log.e(TAG, "ROM import failed", e);
@@ -290,7 +298,7 @@ public class BM64SDLActivity extends SDLActivity {
         String name = sanitizeFileName(queryDisplayName(uri));
         if (name.isEmpty()) name = "mod-" + System.currentTimeMillis() + ".nrm";
         File target = new File(dir, name);
-        copyUriToFile(uri, target);
+        copyUriToFileAtomic(uri, target, MAX_MOD_BYTES);
         imported.add(target.getAbsolutePath());
     }
 
@@ -326,13 +334,36 @@ public class BM64SDLActivity extends SDLActivity {
         }
     }
 
-    private void copyUriToFile(Uri uri, File target) throws IOException {
+    private void copyUriToFileAtomic(Uri uri, File target, long maxBytes) throws IOException {
         File parent = target.getParentFile();
         if (parent != null) parent.mkdirs();
-        try (InputStream in = getContentResolver().openInputStream(uri);
-             OutputStream out = new FileOutputStream(target)) {
-            if (in == null) throw new IOException("Could not open selected document");
-            copyStream(in, out);
+
+        File temp = new File(parent, target.getName() + ".tmp");
+        try {
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 OutputStream out = new FileOutputStream(temp)) {
+                if (in == null) throw new IOException("Could not open selected document");
+                byte[] buffer = new byte[64 * 1024];
+                long total = 0;
+                int read;
+                while ((read = in.read(buffer)) >= 0) {
+                    total += read;
+                    if (total > maxBytes) {
+                        throw new IOException("Selected file is too large.");
+                    }
+                    out.write(buffer, 0, read);
+                }
+            }
+
+            if (target.exists() && !target.delete()) {
+                throw new IOException("Could not replace existing file.");
+            }
+            if (!temp.renameTo(target)) {
+                copyFile(temp, target);
+                if (!temp.delete()) temp.deleteOnExit();
+            }
+        } finally {
+            if (temp.exists() && !temp.equals(target)) temp.delete();
         }
     }
 
