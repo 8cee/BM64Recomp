@@ -29,7 +29,7 @@ std::string jstring_to_utf8(JNIEnv* env, jstring value) {
 
 bool invoke_android_activity_method(const char* method_name) {
     auto* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
-    jobject activity = SDL_AndroidGetActivity();
+    jobject activity = static_cast<jobject>(SDL_AndroidGetActivity());
     if (env == nullptr || activity == nullptr) return false;
     jclass cls = env->GetObjectClass(activity);
     if (cls == nullptr) {
