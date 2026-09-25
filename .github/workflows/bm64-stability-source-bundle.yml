@@ -1,0 +1,31 @@
+name: BM64 Stability Source Bundle
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-stability-source-bundle.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          fetch-depth: 1
+          submodules: false
+
+      - name: Upload stability source delta
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-stability-source-delta
+          path: |
+            android/app/src/main/java/com/eightcee/bm64recomp/BM64SDLActivity.java
+            android/app/src/main/java/com/eightcee/bm64recomp/VirtualPadView.java
+            include/recomp_input.h
+            src/game/controls.cpp
+            src/game/input.cpp
+          if-no-files-found: error
