@@ -688,6 +688,23 @@ public:
                 zelda64::open_quit_game_prompt();
             });
 
+        recompui::register_event(listener, "import_save",
+            [](const std::string& param, Rml::Event& event) {
+                if (ultramodern::is_game_started()) {
+                    zelda64::show_error_message_box(
+                        "Import Save",
+                        "Return to the launcher before importing a save. The save is loaded into memory when the game starts."
+                    );
+                    return;
+                }
+                zelda64::import_save();
+            });
+
+        recompui::register_event(listener, "export_save",
+            [](const std::string& param, Rml::Event& event) {
+                zelda64::export_save();
+            });
+
         recompui::register_event(listener, "toggle_input_device",
             [](const std::string& param, Rml::Event& event) {
                 cur_device = cur_device == recomp::InputDevice::Controller
