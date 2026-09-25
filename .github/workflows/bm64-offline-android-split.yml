@@ -120,15 +120,20 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Stage Android SDK
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/android-sdk/platforms /tmp/android-sdk/build-tools /tmp/android-sdk/ndk /tmp/android-sdk/cmake
+          cp -a "$ANDROID_HOME/platforms/android-36" /tmp/android-sdk/platforms/
+          cp -a "$ANDROID_HOME/build-tools/36.0.0" /tmp/android-sdk/build-tools/
+          cp -a "$ANDROID_HOME/ndk/28.2.13676358" /tmp/android-sdk/ndk/
+          cp -a "$ANDROID_HOME/cmake/3.22.1" /tmp/android-sdk/cmake/
+
       - name: Upload Android SDK
         uses: actions/upload-artifact@v4
         with:
           name: bm64-offline-android-sdk
-          path: |
-            ${{ env.ANDROID_HOME }}/platforms/android-36
-            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
-            ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
-            ${{ env.ANDROID_HOME }}/cmake/3.22.1
+          path: /tmp/android-sdk
           compression-level: 0
           if-no-files-found: error
 
