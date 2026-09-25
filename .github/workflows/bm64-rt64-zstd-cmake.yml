@@ -18,8 +18,11 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Init pinned RT64 recursively
-        run: git submodule update --init --recursive lib/rt64
+      - name: Init pinned RT64 and Zstd only
+        run: |
+          set -euo pipefail
+          git submodule update --init lib/rt64
+          git -C lib/rt64 submodule update --init src/contrib/zstd
 
       - name: Verify source directory
         run: |
