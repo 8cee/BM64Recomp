@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BM64SDLActivity extends SDLActivity {
+    private VirtualPadView virtualPad;
     private static final String TAG = "BM64Android";
     private static final int REQUEST_ROM = 1001;
     private static final int REQUEST_MODS = 1002;
@@ -71,7 +72,7 @@ public class BM64SDLActivity extends SDLActivity {
         hideSystemUi();
         nativeConfigurePaths(programDir.getAbsolutePath(), dataDir.getAbsolutePath());
 
-        VirtualPadView virtualPad = new VirtualPadView(this);
+        virtualPad = new VirtualPadView(this);
         virtualPad.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -108,7 +109,14 @@ public class BM64SDLActivity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (virtualPad != null) virtualPad.setLifecycleActive(true);
         hideSystemUi();
+    }
+
+    @Override
+    protected void onPause() {
+        if (virtualPad != null) virtualPad.setLifecycleActive(false);
+        super.onPause();
     }
 
     public void openRomFilePicker() {
