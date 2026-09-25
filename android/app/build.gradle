@@ -8,6 +8,7 @@ final String freetypePrefix = System.getenv('BM64_ANDROID_FREETYPE_PREFIX') ?: "
 final boolean bm64Probe = (project.findProperty('bm64Probe') ?: 'false').toString().toBoolean()
 final File generatedJniLibsDir = layout.buildDirectory.dir('generated/jniLibs').get().asFile
 final File generatedProgramAssetsDir = layout.buildDirectory.dir('generated/programAssets').get().asFile
+final File generatedLauncherResDir = layout.buildDirectory.dir('generated/launcherRes').get().asFile
 
 android {
     namespace 'com.eightcee.bm64recomp'
@@ -51,6 +52,7 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = [generatedJniLibsDir]
+            res.srcDirs += [generatedLauncherResDir]
             if (!bm64Probe) {
                 assets.srcDirs = [generatedProgramAssetsDir]
             }
@@ -103,6 +105,12 @@ tasks.register('validateAndroidBuildEnvironment') {
     }
 }
 
+tasks.register('copyLauncherIcon', Copy) {
+    from('../../icons/512.png')
+    into(new File(generatedLauncherResDir, 'mipmap-xxxhdpi'))
+    rename { 'ic_launcher.png' }
+}
+
 tasks.register('copySdl2JniLib', Copy) {
     dependsOn tasks.named('validateAndroidBuildEnvironment')
     from("${sdl2Prefix}/lib/libSDL2.so")
@@ -120,6 +128,7 @@ if (!bm64Probe) {
 }
 
 tasks.named('preBuild') {
+    dependsOn tasks.named('copyLauncherIcon')
     dependsOn tasks.named('copySdl2JniLib')
     if (!bm64Probe) {
         dependsOn tasks.named('copyProgramAssets')
