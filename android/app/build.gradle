@@ -5,6 +5,7 @@ plugins {
 final String homeDir = System.getenv('HOME') ?: System.getProperty('user.home')
 final String sdl2Prefix = System.getenv('BM64_ANDROID_SDL2_PREFIX') ?: "${homeDir}/Android/prefixes/SDL2-2.32.10-android-arm64"
 final String freetypePrefix = System.getenv('BM64_ANDROID_FREETYPE_PREFIX') ?: "${homeDir}/Android/prefixes/freetype-2.13.3-android-arm64"
+final boolean bm64Probe = (project.findProperty('bm64Probe') ?: 'false').toString().toBoolean()
 final File generatedJniLibsDir = layout.buildDirectory.dir('generated/jniLibs').get().asFile
 final File generatedProgramAssetsDir = layout.buildDirectory.dir('generated/programAssets').get().asFile
 
@@ -17,12 +18,12 @@ android {
         minSdk 24
         targetSdk 36
         versionCode 1
-        versionName '0.1.0-dev'
+        versionName bm64Probe ? '0.1.0-android-probe' : '0.1.0-android-dev'
 
         externalNativeBuild {
             cmake {
                 abiFilters 'arm64-v8a'
-                arguments                     '-DANDROID_PLATFORM=android-24',                     "-DSDL2_DIR=${sdl2Prefix}/lib/cmake/SDL2",                     "-DCMAKE_PREFIX_PATH=${sdl2Prefix};${freetypePrefix}",                     "-DFREETYPE_LIBRARY=${freetypePrefix}/lib/libfreetype.a",                     "-DFREETYPE_INCLUDE_DIRS=${freetypePrefix}/include/freetype2",                     '-DBM64_ANDROID_RUNTIME_APK=ON'
+                arguments                     '-DANDROID_PLATFORM=android-24',                     "-DSDL2_DIR=${sdl2Prefix}/lib/cmake/SDL2",                     "-DCMAKE_PREFIX_PATH=${sdl2Prefix};${freetypePrefix}",                     "-DFREETYPE_LIBRARY=${freetypePrefix}/lib/libfreetype.a",                     "-DFREETYPE_INCLUDE_DIRS=${freetypePrefix}/include/freetype2",                     "-DBM64_ANDROID_PROBE=${bm64Probe ? 'ON' : 'OFF'}",                     "-DBM64_ANDROID_RUNTIME_APK=${bm64Probe ? 'OFF' : 'ON'}"
                 cFlags '-O2', '-g', '-DNDEBUG'
                 cppFlags '-O2', '-g', '-DNDEBUG'
             }
@@ -41,7 +42,9 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = [generatedJniLibsDir]
-            assets.srcDirs = [generatedProgramAssetsDir]
+            if (!bm64Probe) {
+                assets.srcDirs = [generatedProgramAssetsDir]
+            }
         }
     }
 
@@ -52,19 +55,62 @@ android {
     }
 }
 
+tasks.register('validateAndroidBuildEnvironment') {
+    doLast {
+        File sdlConfig = new File(sdl2Prefix, 'lib/cmake/SDL2')
+        File sdlLibrary = new File(sdl2Prefix, 'lib/libSDL2.so')
+        if (!sdlConfig.exists()) {
+            throw new GradleException("SDL2 CMake package missing: ${sdlConfig}")
+        }
+        if (!sdlLibrary.exists()) {
+            throw new GradleException("SDL2 shared library missing: ${sdlLibrary}")
+        }
+
+        if (!bm64Probe) {
+            File freetypeHeaders = new File(freetypePrefix, 'include/freetype2')
+            File freetypeLibrary = new File(freetypePrefix, 'lib/libfreetype.a')
+            if (!freetypeHeaders.exists() || !freetypeLibrary.exists()) {
+                throw new GradleException('Full runtime requires the Android Freetype prefix')
+            }
+
+            File recompFuncs = file('../../RecompiledFuncs')
+            File recompPatches = file('../../RecompiledPatches/patches.c')
+            if (!recompFuncs.exists() || fileTree(recompFuncs) { include '*.c', '*.cpp' }.isEmpty()) {
+                throw new GradleException('Full runtime requires generated RecompiledFuncs sources')
+            }
+            if (!recompPatches.exists()) {
+                throw new GradleException('Full runtime requires generated RecompiledPatches/patches.c')
+            }
+        }
+    }
+}
+
 tasks.register('copySdl2JniLib', Copy) {
+    dependsOn tasks.named('validateAndroidBuildEnvironment')
     from("${sdl2Prefix}/lib/libSDL2.so")
     into(new File(generatedJniLibsDir, 'arm64-v8a'))
 }
 
-tasks.register('copyProgramAssets', Copy) {
-    doFirst { delete generatedProgramAssetsDir }
-    from('../../assets') { into('program/assets') }
-    from('../../recompcontrollerdb.txt') { into('program') }
-    into(generatedProgramAssetsDir)
+if (!bm64Probe) {
+    tasks.register('copyProgramAssets', Copy) {
+        dependsOn tasks.named('validateAndroidBuildEnvironment')
+        doFirst { delete generatedProgramAssetsDir }
+        from('../../assets') { into('program/assets') }
+        from('../../recompcontrollerdb.txt') { into('program') }
+        into(generatedProgramAssetsDir)
+    }
 }
 
 tasks.named('preBuild') {
     dependsOn tasks.named('copySdl2JniLib')
-    dependsOn tasks.named('copyProgramAssets')
+    if (!bm64Probe) {
+        dependsOn tasks.named('copyProgramAssets')
+    }
+}
+
+tasks.named('clean') {
+    doLast {
+        delete layout.buildDirectory.get().asFile
+        delete file('.cxx')
+    }
 }
