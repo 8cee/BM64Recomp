@@ -1,0 +1,41 @@
+name: BM64 Generation Metadata
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-generation-metadata.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          submodules: false
+          fetch-depth: 1
+
+      - name: Initialize BM64 symbol database only
+        run: git submodule update --init BM64Syms
+
+      - name: Verify generation inputs
+        run: |
+          test -s bm64.us.toml
+          test -s aspMain.toml
+          test -s BM64Syms/dump.toml
+          test -s BM64Syms/data_dump.toml
+          wc -c bm64.us.toml aspMain.toml BM64Syms/dump.toml BM64Syms/data_dump.toml
+
+      - name: Upload metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-generation-metadata
+          path: |
+            bm64.us.toml
+            aspMain.toml
+            BM64Syms/dump.toml
+            BM64Syms/data_dump.toml
+          if-no-files-found: error
