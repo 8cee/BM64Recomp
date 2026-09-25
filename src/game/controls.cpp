@@ -41,6 +41,7 @@ constexpr uint16_t TOUCH_N64_MASKS[TOUCH_PAD_COUNT] = {
 std::atomic<uint16_t> touch_buttons{0};
 std::atomic<float> touch_stick_x{0.0f};
 std::atomic<float> touch_stick_y{0.0f};
+std::atomic<bool> touch_controls_active{false};
 
 void push_touch_button_event(int id, bool pressed) {
     int sdl_button = -1;
@@ -110,9 +111,18 @@ Java_com_eightcee_bm64recomp_VirtualPadView_nativeAxis(JNIEnv*, jobject, jfloat 
     push_touch_axis_events(fx, fy);
 }
 
+void recomp::android_update_touch_controls_active(bool active) {
+    touch_controls_active.store(active, std::memory_order_release);
+    if (!active) {
+        touch_buttons.store(0, std::memory_order_relaxed);
+        touch_stick_x.store(0.0f, std::memory_order_relaxed);
+        touch_stick_y.store(0.0f, std::memory_order_relaxed);
+    }
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_eightcee_bm64recomp_VirtualPadView_nativeControlsActive(JNIEnv*, jobject) {
-    return (ultramodern::is_game_started() && !recomp::game_input_disabled())
+    return touch_controls_active.load(std::memory_order_acquire)
         ? JNI_TRUE : JNI_FALSE;
 }
 #endif
