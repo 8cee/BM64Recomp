@@ -97,7 +97,7 @@ jobs:
             'HOME_ANDROID_REL=home/Android' \
             'HOME_GRADLE_REL=home/.gradle' \
             > /tmp/bm64-offline/ENV.txt
-          tar -C /tmp -I 'zstd -T0 -10' -cf bm64-offline-android-toolchain.tar.zst bm64-offline
+          tar -C /tmp -I 'zstd -T0 -10' -cf /tmp/bm64-offline-android-toolchain.tar.zst bm64-offline
           ls -lh /tmp/bm64-offline-android-toolchain.tar.zst
 
       - name: Upload offline bundle
