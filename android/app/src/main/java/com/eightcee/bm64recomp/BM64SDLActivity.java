@@ -53,6 +53,8 @@ public class BM64SDLActivity extends SDLActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        DiagnosticsLogger.onMainActivityCreate(this);
+        DiagnosticsLogger.mark("BM64SDLActivity.onCreate");
         File programDir = new File(getFilesDir(), "program");
         File dataDir = new File(getFilesDir(), "data");
         File romDir = new File(getFilesDir(), "roms");
@@ -109,17 +111,27 @@ public class BM64SDLActivity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        DiagnosticsLogger.mark("onResume — app returned to foreground");
         if (virtualPad != null) virtualPad.setLifecycleActive(true);
         hideSystemUi();
     }
 
     @Override
     protected void onPause() {
+        DiagnosticsLogger.mark("onPause — app leaving foreground");
         if (virtualPad != null) virtualPad.setLifecycleActive(false);
         super.onPause();
     }
 
+    @Override
+    protected void onDestroy() {
+        DiagnosticsLogger.mark("BM64SDLActivity.onDestroy");
+        DiagnosticsLogger.onMainActivityDestroy();
+        super.onDestroy();
+    }
+
     public void openRomFilePicker() {
+        DiagnosticsLogger.mark("openRomFilePicker");
         runOnUiThread(() -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -132,6 +144,7 @@ public class BM64SDLActivity extends SDLActivity {
     }
 
     public void openSaveImportPicker() {
+        DiagnosticsLogger.mark("openSaveImportPicker");
         runOnUiThread(() -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -141,6 +154,7 @@ public class BM64SDLActivity extends SDLActivity {
     }
 
     public void openSaveExportPicker() {
+        DiagnosticsLogger.mark("openSaveExportPicker");
         runOnUiThread(() -> {
             File save = getPrimarySaveFile();
             if (!save.exists()) {
@@ -196,6 +210,7 @@ public class BM64SDLActivity extends SDLActivity {
     }
 
     public void openModServerBrowser() {
+        DiagnosticsLogger.mark("openModServerBrowser");
         new Thread(() -> {
             try {
                 List<BM64ModServer.ModEntry> mods =
@@ -251,6 +266,7 @@ public class BM64SDLActivity extends SDLActivity {
     }
 
     public void openModFilePicker() {
+        DiagnosticsLogger.mark("openModFilePicker");
         runOnUiThread(() -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
