@@ -79,7 +79,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/bm64-offline/sdk /tmp/bm64-offline/home
-          cp -a "$GITHUB_WORKSPACE" /tmp/bm64-offline/project
+          mkdir -p /tmp/bm64-offline/project
+          tar -C "$GITHUB_WORKSPACE" \
+            --exclude='.git' \
+            --exclude='**/.git' \
+            --exclude='android/.gradle' \
+            --exclude='android/app/build' \
+            --exclude='build' \
+            -cf - . | tar -C /tmp/bm64-offline/project -xf -
           cp -a "$ANDROID_HOME/platforms" /tmp/bm64-offline/sdk/
           cp -a "$ANDROID_HOME/build-tools" /tmp/bm64-offline/sdk/
           cp -a "$ANDROID_HOME/ndk" /tmp/bm64-offline/sdk/
@@ -97,7 +104,7 @@ jobs:
             'HOME_ANDROID_REL=home/Android' \
             'HOME_GRADLE_REL=home/.gradle' \
             > /tmp/bm64-offline/ENV.txt
-          tar -C /tmp -I 'zstd -T0 -10' -cf /tmp/bm64-offline-android-toolchain.tar.zst bm64-offline
+          tar -C /tmp -I 'zstd -T0 -1' -cf /tmp/bm64-offline-android-toolchain.tar.zst bm64-offline
           ls -lh /tmp/bm64-offline-android-toolchain.tar.zst
 
       - name: Upload offline bundle
