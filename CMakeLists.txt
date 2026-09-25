@@ -144,8 +144,15 @@ add_custom_command(OUTPUT
                    DEPENDS ${CMAKE_SOURCE_DIR}/patches/patches.elf
 )
 
-# Main executable
-add_executable(BM64Recompiled)
+# Main executable / Android SDLActivity shared library
+if (CMAKE_SYSTEM_NAME MATCHES "Android" AND BM64_ANDROID_RUNTIME_APK)
+    add_library(main SHARED)
+    set(BM64_RECOMP_TARGET main)
+    target_compile_definitions(main PRIVATE BM64_ANDROID_RUNTIME_APK=1)
+else()
+    add_executable(BM64Recompiled)
+    set(BM64_RECOMP_TARGET BM64Recompiled)
+endif()
 
 set (SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
@@ -209,7 +216,7 @@ if (APPLE)
     list(APPEND SOURCES ${CMAKE_SOURCE_DIR}/src/main/support_apple.mm)
 endif()
 
-target_include_directories(BM64Recompiled PRIVATE
+target_include_directories(${BM64_RECOMP_TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/N64Recomp/include
     ${CMAKE_SOURCE_DIR}/lib/concurrentqueue
@@ -230,7 +237,7 @@ target_include_directories(BM64Recompiled PRIVATE
 )
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
-    target_compile_options(BM64Recompiled PRIVATE
+    target_compile_options(${BM64_RECOMP_TARGET} PRIVATE
         -march=nehalem
         # -march=core2
         # -msse4.1 # added for core2
@@ -238,7 +245,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|
         -fms-extensions
     )
 else()
-    target_compile_options(BM64Recompiled PRIVATE
+    target_compile_options(${BM64_RECOMP_TARGET} PRIVATE
         -fno-strict-aliasing
         -fms-extensions
     )
@@ -270,7 +277,7 @@ if (WIN32)
         URL https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-VC.zip
     )
     FetchContent_MakeAvailable(sdl2)
-    target_include_directories(BM64Recompiled PRIVATE
+    target_include_directories(${BM64_RECOMP_TARGET} PRIVATE
         ${sdl2_SOURCE_DIR}/include
     )
     target_link_directories(BM64Recompiled PRIVATE
@@ -300,7 +307,7 @@ endif()
 
 if (APPLE)
     find_package(SDL2 REQUIRED)
-    target_include_directories(BM64Recompiled PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_include_directories(${BM64_RECOMP_TARGET} PRIVATE ${SDL2_INCLUDE_DIRS})
 
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
     set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -327,14 +334,14 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     message(STATUS "SDL2_FOUND = ${SDL2_FOUND}")
     message(STATUS "SDL2_INCLUDE_DIRS = ${SDL2_INCLUDE_DIRS}")
 
-    target_include_directories(BM64Recompiled PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_include_directories(${BM64_RECOMP_TARGET} PRIVATE ${SDL2_INCLUDE_DIRS})
 
     message(STATUS "X11_FOUND = ${X11_FOUND}")
     message(STATUS "X11_Xrandr_FOUND = ${X11_Xrandr_FOUND}")
     message(STATUS "X11_INCLUDE_DIR = ${X11_INCLUDE_DIR}")
     message(STATUS "X11_LIBRARIES = ${X11_LIBRARIES}")
 
-    target_include_directories(BM64Recompiled PRIVATE ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
+    target_include_directories(${BM64_RECOMP_TARGET} PRIVATE ${X11_INCLUDE_DIR} ${X11_Xrandr_INCLUDE_PATH})
     target_link_libraries(BM64Recompiled PRIVATE ${X11_LIBRARIES} ${X11_Xrandr_LIB})
 
     find_package(Freetype REQUIRED)
@@ -353,7 +360,14 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     target_link_libraries(BM64Recompiled PRIVATE "-latomic -static-libstdc++" ${CMAKE_DL_LIBS} Threads::Threads)
 endif()
 
-target_link_libraries(BM64Recompiled PRIVATE
+if (CMAKE_SYSTEM_NAME MATCHES "Android")
+    find_package(SDL2 REQUIRED)
+    add_compile_definitions(RT64_SDL_WINDOW_VULKAN)
+    target_include_directories(${BM64_RECOMP_TARGET} PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE SDL2::SDL2 android log vulkan)
+endif()
+
+target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE
     PatchesLib
     RecompiledFuncs
     librecomp
@@ -397,8 +411,8 @@ else()
     endif()
 endif()
 
-build_vertex_shader(BM64Recompiled "shaders/InterfaceVS.hlsl" "shaders/InterfaceVS.hlsl")
-build_pixel_shader(BM64Recompiled "shaders/InterfacePS.hlsl" "shaders/InterfacePS.hlsl")
+build_vertex_shader(${BM64_RECOMP_TARGET} "shaders/InterfaceVS.hlsl" "shaders/InterfaceVS.hlsl")
+build_pixel_shader(${BM64_RECOMP_TARGET} "shaders/InterfacePS.hlsl" "shaders/InterfacePS.hlsl")
 
 # Embed all .nrm files in the "mods" directory
 file(GLOB NRM_FILES "${CMAKE_SOURCE_DIR}/mods/*.nrm")
@@ -419,8 +433,8 @@ foreach(NRM_FILE ${NRM_FILES})
     list(APPEND GENERATED_NRM_SOURCES ${OUT_C})
 endforeach()
 
-target_sources(BM64Recompiled PRIVATE ${GENERATED_NRM_SOURCES})
+target_sources(${BM64_RECOMP_TARGET} PRIVATE ${GENERATED_NRM_SOURCES})
 
-target_sources(BM64Recompiled PRIVATE ${SOURCES})
+target_sources(${BM64_RECOMP_TARGET} PRIVATE ${SOURCES})
 
-set_property(TARGET BM64Recompiled PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_property(TARGET ${BM64_RECOMP_TARGET} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
