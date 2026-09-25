@@ -1,0 +1,149 @@
+name: BM64 Offline Android Split
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-offline-android-split.yml'
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          fetch-depth: 1
+          submodules: false
+
+      - name: Initialize required submodules
+        run: |
+          set -euo pipefail
+          git submodule update --init --recursive \
+            BM64Syms \
+            lib/N64ModernRuntime \
+            lib/RmlUi \
+            lib/freetype-windows-binaries \
+            lib/lunasvg \
+            lib/rt64 \
+            lib/sse2neon
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Install Android SDK components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build unzip clang lld
+
+      - name: Build SDL2 for Android ARM64
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          PREFIX="$HOME/Android/prefixes/SDL2-2.32.10-android-arm64"
+          NDK="$ANDROID_HOME/ndk/28.2.13676358"
+          CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+          "$CMAKE" -S /tmp/SDL2 -B /tmp/SDL2-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST=OFF
+          "$CMAKE" --build /tmp/SDL2-build --parallel
+          "$CMAKE" --install /tmp/SDL2-build
+
+      - name: Build Freetype for Android ARM64
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch VER-2-13-3 https://gitlab.freedesktop.org/freetype/freetype.git /tmp/freetype
+          PREFIX="$HOME/Android/prefixes/freetype-2.13.3-android-arm64"
+          NDK="$ANDROID_HOME/ndk/28.2.13676358"
+          CMAKE="$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+          "$CMAKE" -S /tmp/freetype -B /tmp/freetype-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DFT_DISABLE_HARFBUZZ=TRUE -DFT_DISABLE_BZIP2=TRUE \
+            -DFT_DISABLE_PNG=TRUE -DFT_DISABLE_BROTLI=TRUE
+          "$CMAKE" --build /tmp/freetype-build --parallel
+          "$CMAKE" --install /tmp/freetype-build
+
+      - name: Warm Gradle dependencies
+        working-directory: android
+        run: |
+          set -euo pipefail
+          gradle :app:help -Pbm64Probe=true --no-daemon
+          gradle :app:assembleDebug -Pbm64Probe=true --no-daemon
+
+      - name: Prepare slim project
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/project
+          tar -C "$GITHUB_WORKSPACE" \
+            --exclude='.git' \
+            --exclude='**/.git' \
+            --exclude='android/.gradle' \
+            --exclude='android/app/build' \
+            --exclude='build' \
+            -cf - . | tar -C /tmp/project -xf -
+
+      - name: Upload project
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-offline-project
+          path: /tmp/project
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload Android SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-offline-android-sdk
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms/android-36
+            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
+            ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+            ${{ env.ANDROID_HOME }}/cmake/3.22.1
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload Gradle cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-offline-gradle
+          path: ~/.gradle
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload Android prefixes
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-offline-prefixes
+          path: ~/Android/prefixes
+          compression-level: 0
+          if-no-files-found: error
