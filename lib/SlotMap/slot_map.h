@@ -23,7 +23,15 @@
 #else
 // Posix
 #include <stdlib.h>
+#if defined(__ANDROID__)
+static inline void* slot_map_aligned_alloc(size_t alignment, size_t sizeInBytes) {
+    void* ptr = nullptr;
+    return posix_memalign(&ptr, alignment, sizeInBytes) == 0 ? ptr : nullptr;
+}
+#define SLOT_MAP_ALLOC(sizeInBytes, alignment) slot_map_aligned_alloc(alignment, sizeInBytes)
+#else
 #define SLOT_MAP_ALLOC(sizeInBytes, alignment) aligned_alloc(alignment, sizeInBytes)
+#endif
 #define SLOT_MAP_FREE(ptr) free(ptr)
 #endif
 
