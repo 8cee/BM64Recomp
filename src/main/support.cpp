@@ -205,6 +205,23 @@ namespace zelda64 {
 #endif
     }
 
+    void open_mod_server(std::function<void(bool success, const std::list<std::filesystem::path>& paths)> callback) {
+#if defined(__ANDROID__)
+        {
+            std::lock_guard lock(android_dialog_mutex);
+            android_multi_dialog_callback = callback;
+        }
+        if (!invoke_android_activity_method("openModServerBrowser")) {
+            std::lock_guard lock(android_dialog_mutex);
+            auto failed = std::move(android_multi_dialog_callback);
+            android_multi_dialog_callback = {};
+            if (failed) failed(false, {});
+        }
+#else
+        callback(false, {});
+#endif
+    }
+
     void show_error_message_box(const char *title, const char *message) {
 #ifdef __APPLE__
         std::string title_copy(title);
