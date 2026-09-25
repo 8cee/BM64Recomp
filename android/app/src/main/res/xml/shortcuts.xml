@@ -10,6 +10,5 @@
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.eightcee.bm64recomp"
             android:targetClass="com.eightcee.bm64recomp.DiagnosticsActivity" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 </shortcuts>
