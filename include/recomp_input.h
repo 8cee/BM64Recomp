@@ -197,6 +197,9 @@ namespace recomp {
 
     bool game_input_disabled();
     bool all_input_disabled();
+#if defined(__ANDROID__)
+    void android_update_touch_controls_active(bool active);
+#endif
 }
 
 #endif
