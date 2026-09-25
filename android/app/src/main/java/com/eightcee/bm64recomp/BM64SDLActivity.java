@@ -1,6 +1,6 @@
 package com.eightcee.bm64recomp;
 
-import android.app.Activity;
+import android.app.Activity;\nimport android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.net.Uri;
@@ -16,7 +16,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
+import java.util.ArrayList;\nimport java.util.List;
 
 public class BM64SDLActivity extends SDLActivity {
     private static final String TAG = "BM64Android";
@@ -63,6 +63,61 @@ public class BM64SDLActivity extends SDLActivity {
             });
             startActivityForResult(intent, REQUEST_ROM);
         });
+    }
+
+    public void openModServerBrowser() {
+        new Thread(() -> {
+            try {
+                List<BM64ModServer.ModEntry> mods =
+                        BM64ModServer.fetchIndex(BM64ModServer.DEFAULT_INDEX_URL);
+                runOnUiThread(() -> {
+                    if (mods.isEmpty()) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("BM64 Mod Server")
+                                .setMessage("No mods are published on the server yet.")
+                                .setPositiveButton("OK", null)
+                                .show();
+                        return;
+                    }
+
+                    String[] labels = new String[mods.size()];
+                    for (int i = 0; i < mods.size(); i++) {
+                        BM64ModServer.ModEntry mod = mods.get(i);
+                        labels[i] = mod.name + "  v" + mod.version + "  — " + mod.author;
+                    }
+
+                    new AlertDialog.Builder(this)
+                            .setTitle("BM64 Mod Server")
+                            .setItems(labels, (dialog, which) -> downloadServerMod(mods.get(which)))
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Could not load mod server", e);
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                        .setTitle("BM64 Mod Server")
+                        .setMessage("Could not load the mod server: " + e.getMessage())
+                        .setPositiveButton("OK", null)
+                        .show());
+            }
+        }, "BM64-ModIndex").start();
+    }
+
+    private void downloadServerMod(BM64ModServer.ModEntry mod) {
+        new Thread(() -> {
+            try {
+                File dir = new File(getFilesDir(), "imports/mods");
+                File downloaded = BM64ModServer.downloadVerified(mod, dir);
+                nativeOnModsSelected(new String[] { downloaded.getAbsolutePath() });
+            } catch (Exception e) {
+                Log.e(TAG, "Mod download failed", e);
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                        .setTitle("Mod install failed")
+                        .setMessage(e.getMessage())
+                        .setPositiveButton("OK", null)
+                        .show());
+            }
+        }, "BM64-ModDownload").start();
     }
 
     public void openModFilePicker() {
