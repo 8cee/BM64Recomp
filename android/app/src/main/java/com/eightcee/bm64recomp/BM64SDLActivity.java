@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.database.Cursor;
 import android.util.Log;
+import android.view.ViewGroup;
 
 import org.libsdl.app.SDLActivity;
 
@@ -65,6 +66,13 @@ public class BM64SDLActivity extends SDLActivity {
 
         super.onCreate(savedInstanceState);
         nativeConfigurePaths(programDir.getAbsolutePath(), dataDir.getAbsolutePath());
+
+        VirtualPadView virtualPad = new VirtualPadView(this);
+        virtualPad.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        addContentView(virtualPad, virtualPad.getLayoutParams());
+        virtualPad.bringToFront();
     }
 
     public void openRomFilePicker() {
