@@ -1,6 +1,7 @@
 package com.eightcee.bm64recomp;
 
-import android.app.Activity;\nimport android.app.AlertDialog;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.net.Uri;
@@ -16,7 +17,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;\nimport java.util.List;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BM64SDLActivity extends SDLActivity {
     private static final String TAG = "BM64Android";
