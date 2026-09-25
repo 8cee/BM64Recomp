@@ -8,7 +8,9 @@
 #include <stdexcept>
 #include <cinttypes>
 
+#if !defined(__ANDROID__)
 #include "nfd.h"
+#endif
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
@@ -17,6 +19,7 @@
 #include "SDL.h"
 #else
 #include "SDL2/SDL.h"
+#if !defined(__ANDROID__)
 #include "SDL2/SDL_syswm.h"
 // Undefine x11 macros that get included by SDL_syswm.h.
 #undef None
@@ -25,6 +28,7 @@
 #undef ControlMask
 #undef Success
 #undef Always
+#endif
 #endif
 
 #include "recomp_ui.h"
@@ -160,9 +164,11 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
         exit_error("Failed to create window: %s\n", SDL_GetError());
     }
 
+#if !defined(__ANDROID__)
     SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
+#endif
 
 #if defined(_WIN32)
     return ultramodern::renderer::WindowHandle{ wmInfo.info.win.window, GetCurrentThreadId() };
@@ -700,7 +706,9 @@ int main(int argc, char** argv) {
 
     recomp::start(cfg);
 
+#if !defined(__ANDROID__)
     NFD_Quit();
+#endif
 
     if (preloaded) {
         release_preload(preload_context);
