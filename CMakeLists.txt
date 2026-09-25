@@ -60,6 +60,15 @@ set(RT64_STATIC TRUE)
 set(RT64_SDL_WINDOW_VULKAN TRUE)
 add_compile_definitions(HLSL_CPU)
 
+# The Android runtime only needs the static Zstd library. Avoid building
+# dictionary/program targets that use APIs unavailable at our Android API 24 minimum.
+if (CMAKE_SYSTEM_NAME MATCHES "Android")
+    set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+    set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+    set(ZSTD_BUILD_DICTBUILDER OFF CACHE BOOL "" FORCE)
+endif()
+
 if (RECOMP_FLATPAK)
     add_compile_definitions(RECOMP_FLATPAK)
 endif()
@@ -391,7 +400,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Android")
     find_package(SDL2 REQUIRED)
     add_compile_definitions(RT64_SDL_WINDOW_VULKAN)
     target_include_directories(${BM64_RECOMP_TARGET} PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE SDL2::SDL2 android log vulkan)
+    target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE SDL2::SDL2 android log vulkan z)
 endif()
 
 target_link_libraries(${BM64_RECOMP_TARGET} PRIVATE
