@@ -81,7 +81,8 @@ protected:
 private:
     void refresh_mods(bool scan_mods);
     void open_mods_folder();
-    void open_install_dialog();\n    void open_mod_server();
+    void open_install_dialog();
+    void open_mod_server();
     void mod_toggled(bool enabled);
     void mod_selected(uint32_t mod_index);
     void mod_dragged(uint32_t mod_index, EventDrag drag);
@@ -100,7 +101,8 @@ private:
     ModDetailsPanel *mod_details_panel = nullptr;
     Container *body_empty_container = nullptr;
     Container *footer_container = nullptr;
-    Button *install_mods_button = nullptr;\n    Button *mod_server_button = nullptr;
+    Button *install_mods_button = nullptr;
+    Button *mod_server_button = nullptr;
     Button *refresh_button = nullptr;
     Button *mods_folder_button = nullptr;
     int32_t active_mod_index = -1;
