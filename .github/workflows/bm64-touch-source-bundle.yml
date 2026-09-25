@@ -1,0 +1,29 @@
+name: BM64 Touch Source Bundle
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/bm64-touch-source-bundle.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android branch
+        uses: actions/checkout@v4
+        with:
+          ref: android
+          fetch-depth: 1
+          submodules: false
+
+      - name: Upload touch source delta
+        uses: actions/upload-artifact@v4
+        with:
+          name: bm64-touch-source-delta
+          path: |
+            android/app/src/main/java/com/eightcee/bm64recomp/BM64SDLActivity.java
+            android/app/src/main/java/com/eightcee/bm64recomp/VirtualPadView.java
+            src/game/controls.cpp
+          if-no-files-found: error
